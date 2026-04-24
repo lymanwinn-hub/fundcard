@@ -741,7 +741,7 @@ function SuperAdminView({ data, onDataChange, onLock }) {
     const id=randId(6);
     const t={id,name:newTeamName.trim(),branding:{},admin_user:"",admin_pin:"",permissions:{...DEFAULT_PERMISSIONS}};
     await DB.insert("teams",t);
-    onDataChange({...data,teams:{...data.teams,[id]:{id,name:t.name,branding:{},adminUser:"",adminPin:"",permissions:{...DEFAULT_PERMISSIONS},deals:{},cards:{},createdAt:Date.now()}}});
+    onDataChange({...data,teams:{...data.teams,[id]:{id,name:t.name,branding:{},adminUser:"",adminPin:"",permissions:{...DEFAULT_PERMISSIONS},deals:[],cards:{},createdAt:Date.now()}}});
     setNewTeamName(""); setView(id);
   }
 
@@ -1082,14 +1082,18 @@ function CustomerWallet({ data, customerEmail, onLogout }) {
   // Load cards AND fresh redemption counts from Supabase on every login
   useEffect(()=>{
     async function loadWallet() {
+      // Step 1: load card IDs — if this fails show empty wallet
+      let cardIds = [];
       try {
         const cardRows = await DB.get("customer_cards",`email=eq.${encodeURIComponent(customerEmail)}&select=card_id`);
-        const cardIds = (cardRows||[]).map(r=>r.card_id);
-        setMyCardIds(cardIds);
-        if(cardIds.length===0) return;
-        // Fetch all redemptions for these cards fresh from DB
-        const filter = cardIds.map(id=>`card_id=eq.${id}`).join(",");
-        const redRows = await DB.get("redemptions",`or=(${filter})&select=card_id,deal_id`);
+        cardIds = (cardRows||[]).map(r=>r.card_id);
+      } catch(e) { cardIds = []; }
+      setMyCardIds(cardIds);
+
+      // Step 2: load redemptions separately — if this fails cards still show
+      if(cardIds.length === 0) return;
+      try {
+        const redRows = await DB.get("redemptions",`card_id=in.(${cardIds.join(",")})&select=card_id,deal_id`);
         const counts = {};
         for(const r of (redRows||[])) {
           if(!counts[r.card_id]) counts[r.card_id]={};
@@ -1097,7 +1101,8 @@ function CustomerWallet({ data, customerEmail, onLogout }) {
         }
         setRedemptions(counts);
       } catch(e) {
-        setMyCardIds([]);
+        // redemptions failed but cards still show — non-fatal
+        setRedemptions({});
       }
     }
     loadWallet();
