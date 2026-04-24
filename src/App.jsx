@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // SUPABASE CONFIG — replace these two lines with your own values
 // Found at: supabase.com > your project > Settings > API
 // ═══════════════════════════════════════════════════════════════════════════
-const SUPABASE_URL     = "https://qkjhuisquibnejprloip.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFramh1aXNxdWlibmVqcHJsb2lwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMjI4MzEsImV4cCI6MjA5MjU5ODgzMX0.ppHab7C5YDhS1ZjM6n2nnuX81KYMqoefoaTCoIWK7ew";
+const SUPABASE_URL     = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_KEY_HERE";
 
 // ── Supabase REST client ──────────────────────────────────────────────────────
 async function sb(path, opts = {}) {
@@ -28,12 +28,11 @@ async function sb(path, opts = {}) {
 }
 
 const DB = {
-  get:        (t, q="")    => sb(`${t}?${q}`),
-  insert:     (t, row)     => sb(t, { method:"POST", body: row }),
-  insertMany: (t, rows)    => sb(t, { method:"POST", body: rows }),
-  update:     (t, q, row)  => sb(`${t}?${q}`, { method:"PATCH", body: row, prefer:"return=minimal" }),
-  upsert:     (t, row)     => sb(t, { method:"POST", body: row, prefer:"resolution=merge-duplicates,return=representation" }),
-  del:        (t, q)       => sb(`${t}?${q}`, { method:"DELETE", prefer:"return=minimal" }),
+  get:    (t, q="")    => sb(`${t}?${q}`),
+  insert: (t, row)     => sb(t, { method:"POST", body: row }),
+  update: (t, q, row)  => sb(`${t}?${q}`, { method:"PATCH", body: row, prefer:"return=minimal" }),
+  upsert: (t, row)     => sb(t, { method:"POST", body: row, prefer:"resolution=merge-duplicates,return=representation" }),
+  del:    (t, q)       => sb(`${t}?${q}`, { method:"DELETE", prefer:"return=minimal" }),
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -96,7 +95,7 @@ async function loadAppData() {
       id:d.id, merchant:d.merchant, offer:d.offer, notes:d.notes,
       category:d.category, color:d.color, logo:d.logo, limit:d.limit_per_card,
       locationMode:d.location_mode, address:d.address, locations:d.locations||[],
-      sortOrder:d.sort_order,
+      sortOrder:d.sort_order, expiryDate:d.expiry_date||"",
     });
   }
   for (const c of (cardsRaw||[])) {
@@ -224,7 +223,7 @@ function CustomerPinPad({ value, onChange, onComplete, shake }) {
 // DEAL EDITOR
 // ═══════════════════════════════════════════════════════════════════════════
 function DealEditor({ deal, teamId, onSave, onCancel, onDelete, isNew }) {
-  const [form,setForm]=useState(deal||{merchant:"",offer:"",notes:"",limit:null,category:"Food",logo:null,color:"#f97316",locationMode:"single",address:"",locations:[]});
+  const [form,setForm]=useState(deal||{merchant:"",offer:"",notes:"",limit:null,category:"Food",logo:null,color:"#f97316",locationMode:"single",address:"",locations:[],expiryDate:""});
   const [confirmDelete,setConfirmDelete]=useState(false);
   const [saving,setSaving]=useState(false);
   const [newLoc,setNewLoc]=useState("");
@@ -241,6 +240,7 @@ function DealEditor({ deal, teamId, onSave, onCancel, onDelete, isNew }) {
         limit_per_card:form.limit, location_mode:form.locationMode||"single",
         address:form.address||"", locations:form.locations||[],
         sort_order: form.sortOrder||0,
+        expiry_date: form.expiryDate||null,
       };
       if(isNew) {
         const [created]=await DB.insert("deals",row);
@@ -279,7 +279,7 @@ function DealEditor({ deal, teamId, onSave, onCancel, onDelete, isNew }) {
         </div>
         {[{label:"MERCHANT / BUSINESS NAME",key:"merchant",ph:"e.g. Pizza Palace"},
           {label:"DEAL OFFER",key:"offer",ph:"e.g. Buy 1 Get 1 Free Pizza"},
-          {label:"FINE PRINT / NOTES (optional)",key:"notes",ph:"e.g. Dine-in only. Expires Dec 2025."}
+          {label:"FINE PRINT / NOTES (optional)",key:"notes",ph:"e.g. Dine-in only. No other offers."}
         ].map(f=>(
           <div key={f.key} style={{marginBottom:13}}>
             <label style={{fontSize:11,color:"#64748b",display:"block",marginBottom:5}}>{f.label}</label>
@@ -287,6 +287,12 @@ function DealEditor({ deal, teamId, onSave, onCancel, onDelete, isNew }) {
               style={{width:"100%",background:"#1e293b",border:"1px solid #334155",borderRadius:8,padding:"10px 12px",color:"white",fontSize:14,outline:"none"}}/>
           </div>
         ))}
+        <div style={{marginBottom:13}}>
+          <label style={{fontSize:11,color:"#64748b",display:"block",marginBottom:5}}>EXPIRATION DATE (optional)</label>
+          <input type="date" value={form.expiryDate||""} onChange={e=>set("expiryDate",e.target.value)}
+            style={{width:"100%",background:"#1e293b",border:"1px solid #334155",borderRadius:8,padding:"10px 12px",color:"white",fontSize:14,outline:"none",colorScheme:"dark"}}/>
+          <div style={{fontSize:10,color:"#475569",marginTop:4}}>Leave blank for no expiration</div>
+        </div>
         <div style={{marginBottom:13}}>
           <label style={{fontSize:11,color:"#64748b",display:"block",marginBottom:8}}>LOCATION</label>
           <div style={{display:"flex",gap:6,marginBottom:10}}>
@@ -338,7 +344,8 @@ function DealEditor({ deal, teamId, onSave, onCancel, onDelete, isNew }) {
 // DEAL CARD (customer-facing)
 // ═══════════════════════════════════════════════════════════════════════════
 function DealCard({ deal, used=0, onRedeem, confirmMode, setConfirmMode, preview=false }) {
-  const maxed=deal.limit!=null&&used>=deal.limit;
+  const expired=deal.expiryDate&&new Date(deal.expiryDate+"T23:59:59")<new Date();
+  const maxed=(deal.limit!=null&&used>=deal.limit)||expired;
   const color=deal.color||"#3b82f6";
   const isConfirm=confirmMode===deal.id;
   const remaining=deal.limit!=null?deal.limit-used:null;
@@ -356,6 +363,16 @@ function DealCard({ deal, used=0, onRedeem, confirmMode, setConfirmMode, preview
         {deal.locationMode==="multiple"&&(deal.locations||[]).length>0&&<div style={{marginTop:5}}><div style={{fontSize:10,color:"#475569",marginBottom:2}}>📍 Multiple locations:</div>{deal.locations.map((loc,i)=><div key={i} onClick={()=>openMaps(loc)} style={{fontSize:11,color:"#3b82f6",paddingLeft:14,lineHeight:1.7,cursor:"pointer",textDecoration:"underline"}}>{loc}</div>)}</div>}
         {deal.locationMode==="alllocations"&&<div style={{fontSize:11,color:"#22c55e",marginTop:4}}>📍 Valid at all locations</div>}
         {deal.notes&&<div style={{fontSize:11,color:"#475569",marginTop:4,fontStyle:"italic"}}>{deal.notes}</div>}
+        {deal.expiryDate&&(()=>{
+          const exp=new Date(deal.expiryDate+"T23:59:59");
+          const now=new Date();
+          const diffDays=Math.ceil((exp-now)/(1000*60*60*24));
+          const expired=diffDays<0;
+          const soon=diffDays>=0&&diffDays<=7;
+          return <div style={{fontSize:10,fontWeight:700,color:expired?"#ef4444":soon?"#f59e0b":"#475569",marginTop:4}}>
+            {expired?"✗ EXPIRED":"⏱ Expires "+exp.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
+          </div>;
+        })()}
         {!preview&&(
           <div style={{marginTop:10,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
             <div style={{fontSize:10,fontWeight:700,color:maxed?"#ef4444":remaining===1?"#f59e0b":deal.limit!=null?"#94a3b8":"#22c55e"}}>
@@ -551,11 +568,9 @@ function TeamPanel({ team, onTeamUpdate, isSuperAdmin }) {
 
   async function generateCards() {
     const newCards={};
-    for(let i=0;i<count;i++){
-      const id=randId(8);
-      await DB.insert("cards",{id,team_id:team.id});
-      newCards[id]={id,teamId:team.id,createdAt:Date.now(),redemptions:{}};
-    }
+    const rows=[];
+    for(let i=0;i<count;i++){const id=randId(8);newCards[id]={id,teamId:team.id,createdAt:Date.now(),redemptions:{}};rows.push({id,team_id:team.id});}
+    await DB.insertMany("cards",rows);
     onTeamUpdate({...team,cards:{...team.cards,...newCards}});
     setTab("issued");
   }
@@ -817,8 +832,6 @@ function SuperAdminView({ data, onDataChange, onLock }) {
 // ═══════════════════════════════════════════════════════════════════════════
 function AdminLoginGate({ data, onLogin }) {
   const [username,setUsername]=useState(""); const [pin,setPin]=useState(""); const [err,setErr]=useState(""); const [shake,setShake]=useState(false);
-  const totalCards=Object.values(data.teams||{}).reduce((s,t)=>s+Object.keys(t.cards||{}).length,0);
-  const teamCount=Object.keys(data.teams||{}).length;
 
   function attempt(currentPin){
     const p=currentPin!==undefined?currentPin:pin; const u=username.trim().toLowerCase();
@@ -831,15 +844,7 @@ function AdminLoginGate({ data, onLogin }) {
   return (<div style={{textAlign:"center",padding:"30px 0 20px"}}>
     <div style={{fontSize:40,marginBottom:10}}>🔐</div>
     <div style={{fontSize:22,fontWeight:800,color:"white",marginBottom:4}}>Admin Login</div>
-    <div style={{fontSize:12,color:"#475569",marginBottom:20}}>Super admin or team coach access</div>
-    <div style={{display:"flex",gap:10,marginBottom:24,justifyContent:"center"}}>
-      {[{l:"Teams",v:teamCount,c:"#f59e0b"},{l:"Total Cards",v:totalCards,c:"#3b82f6"}].map(s=>(
-        <div key={s.l} style={{background:"#1e293b",borderRadius:10,padding:"10px 20px",border:`1px solid ${s.c}22`,minWidth:90}}>
-          <div style={{fontSize:22,fontWeight:800,color:s.c,fontFamily:"monospace"}}>{s.v}</div>
-          <div style={{fontSize:9,color:"#475569",marginTop:2}}>{s.l}</div>
-        </div>
-      ))}
-    </div>
+    <div style={{fontSize:12,color:"#475569",marginBottom:24}}>Super admin or team coach access</div>
     <input value={username} onChange={e=>{setUsername(e.target.value);setErr("");}} placeholder="Username"
       style={{width:"100%",background:"#1e293b",border:"1px solid #334155",borderRadius:10,padding:"12px 16px",color:"white",fontSize:15,outline:"none",marginBottom:20,textAlign:"center"}}/>
     <div style={{fontSize:11,color:"#64748b",marginBottom:8}}>PIN</div>
@@ -854,7 +859,7 @@ function AdminLoginGate({ data, onLogin }) {
 // CUSTOMER AUTH (email + PIN + forgot PIN)
 // ═══════════════════════════════════════════════════════════════════════════
 function CustomerAuth({ data, setData, onLogin, prefillCardId="" }) {
-  const [screen,setScreen]=useState("login");
+  const [screen,setScreen]=useState(prefillCardId?"welcome":"login");
   const [email,setEmail]=useState(""); const [pin,setPin]=useState("");
   const [cardId,setCardId]=useState(prefillCardId);
   const [secQ,setSecQ]=useState(SECURITY_QUESTIONS[0]); const [secA,setSecA]=useState("");
@@ -937,6 +942,46 @@ function CustomerAuth({ data, setData, onLogin, prefillCardId="" }) {
     <div style={{fontSize:20,fontWeight:800,color:"white",marginBottom:4}}>{title}</div>
     <div style={{fontSize:13,color:"#64748b"}}>{sub}</div>
   </div>);}
+
+  // Find team info for the prefill card
+  const prefillCardTeam = prefillCardId ? (() => {
+    for(const team of Object.values(data.teams)){
+      if(team.cards?.[prefillCardId.toUpperCase()]) return team;
+    }
+    return null;
+  })() : null;
+
+  if(screen==="welcome") return (<div style={{padding:"20px 0",textAlign:"center"}}>
+    <div style={{fontSize:48,marginBottom:12}}>🎟️</div>
+    <div style={{fontSize:22,fontWeight:800,color:"white",marginBottom:6}}>
+      {prefillCardTeam ? prefillCardTeam.name : "Your Discount Card"}
+    </div>
+    <div style={{fontFamily:"monospace",fontSize:16,color:"#f59e0b",letterSpacing:3,marginBottom:8}}>
+      {prefillCardId}
+    </div>
+    {prefillCardTeam?.branding?.logo && (
+      <img src={prefillCardTeam.branding.logo} style={{width:64,height:64,borderRadius:14,objectFit:"cover",margin:"0 auto 16px",display:"block"}}/>
+    )}
+    <div style={{fontSize:13,color:"#64748b",marginBottom:32}}>
+      Create a free account to save this card to your phone — or log in if you already have one.
+    </div>
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      <button onClick={()=>{setScreen("register");setErr("");setPin("");}} style={{
+        padding:"14px",background:"#f59e0b",border:"none",borderRadius:12,
+        color:"#0f172a",fontSize:15,fontWeight:800,cursor:"pointer"}}>
+        Create Free Account →
+      </button>
+      <button onClick={()=>{setScreen("login");setErr("");setPin("");}} style={{
+        padding:"14px",background:"#1e293b",border:"1px solid #334155",borderRadius:12,
+        color:"white",fontSize:14,fontWeight:600,cursor:"pointer"}}>
+        I already have an account
+      </button>
+    </div>
+    <div style={{marginTop:28,background:"#1e293b",borderRadius:12,padding:"14px 16px",textAlign:"left",fontSize:12,color:"#64748b",lineHeight:1.8}}>
+      <strong style={{color:"#94a3b8"}}>💡 Save to your phone</strong><br/>
+      After creating your account, tap <strong style={{color:"white"}}>Share &rarr; Add to Home Screen</strong> — your card lives on your phone forever.
+    </div>
+  </div>);
 
   if(screen==="login") return (<div style={{padding:"20px 0"}}>
     <Hdr title="Welcome Back" sub="Log in to view your discount cards"/>
