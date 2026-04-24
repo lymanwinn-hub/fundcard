@@ -4,8 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // SUPABASE CONFIG — replace these two lines with your own values
 // Found at: supabase.com > your project > Settings > API
 // ═══════════════════════════════════════════════════════════════════════════
-const SUPABASE_URL     = "https://qkjhuisquibnejprloip.supabase.co
-";
+const SUPABASE_URL     = "https://qkjhuisquibnejprloip.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFramh1aXNxdWlibmVqcHJsb2lwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMjI4MzEsImV4cCI6MjA5MjU5ODgzMX0.ppHab7C5YDhS1ZjM6n2nnuX81KYMqoefoaTCoIWK7ew";
 
 // ── Supabase REST client ──────────────────────────────────────────────────────
