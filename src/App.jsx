@@ -1071,7 +1071,7 @@ function QuestionDisplay({ email }) {
 // ═══════════════════════════════════════════════════════════════════════════
 // CUSTOMER WALLET
 // ═══════════════════════════════════════════════════════════════════════════
-function CustomerWallet({ data, customerEmail, onLogout }) {
+function CustomerWallet({ data, customerEmail, onLogout, onTeamActive=()=>{} }) {
   const [activeCardId,setActiveCardId]=useState(null);
   const [myCardIds,setMyCardIds]=useState(null); // null = loading
   const [addCardInput,setAddCardInput]=useState(""); const [addCardErr,setAddCardErr]=useState("");
@@ -1132,6 +1132,7 @@ function CustomerWallet({ data, customerEmail, onLogout }) {
       } catch(e) {}
       setMyCardIds([...myCardIds,result.cardId]); setAddCardInput("");
       setActiveCardId(result.cardId);
+      onTeamActive(findCard(result.cardId)?.team||null);
     }catch(e){setAddCardErr("Could not add card — try again");}
   }
 
@@ -1165,7 +1166,7 @@ function CustomerWallet({ data, customerEmail, onLogout }) {
     const totalAvail=deals.filter(d=>!(d.limit!=null&&getUsed(activeCardId,d.id,team)>=d.limit)).length;
     return (<div>
       {confetti&&<Confetti onDone={()=>setConfetti(false)}/>}
-      <button onClick={()=>{setActiveCardId(null);setFilter("All");}} style={{background:"transparent",border:"none",color:"#475569",fontSize:12,cursor:"pointer",marginBottom:14,padding:0}}>← My Cards</button>
+      <button onClick={()=>{setActiveCardId(null);setFilter("All");onTeamActive(null);}} style={{background:"transparent",border:"none",color:"#475569",fontSize:12,cursor:"pointer",marginBottom:14,padding:0}}>← My Cards</button>
       <div style={{background:`linear-gradient(135deg,${bgTop} 0%,${bgBot} 100%)`,borderRadius:16,padding:"18px 20px",marginBottom:20,border:`1px solid ${primary}44`,position:"relative",overflow:"hidden"}}>
         <div style={{position:"absolute",top:-30,right:-30,width:130,height:130,background:`radial-gradient(circle,${primary}22 0%,transparent 70%)`,borderRadius:"50%"}}/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -1212,7 +1213,7 @@ function CustomerWallet({ data, customerEmail, onLogout }) {
         const b=team.branding||{}; const primary=b.primaryColor||"#f59e0b"; const bgTop=b.cardBgTop||"#0f2444"; const bgBot=b.cardBgBottom||"#1a3a6e";
         const totalUsed=team.deals.reduce((s,d)=>s+getUsed(cardId,d.id,team),0);
         const avail=(team.deals||[]).filter(d=>!(d.limit!=null&&getUsed(cardId,d.id,team)>=d.limit)).length;
-        return (<div key={cardId} onClick={()=>setActiveCardId(cardId)} style={{background:`linear-gradient(135deg,${bgTop} 0%,${bgBot} 100%)`,borderRadius:14,padding:"16px 18px",cursor:"pointer",border:`1px solid ${primary}44`,position:"relative",overflow:"hidden"}}>
+        return (<div key={cardId} onClick={()=>{setActiveCardId(cardId);onTeamActive(team);}} style={{background:`linear-gradient(135deg,${bgTop} 0%,${bgBot} 100%)`,borderRadius:14,padding:"16px 18px",cursor:"pointer",border:`1px solid ${primary}44`,position:"relative",overflow:"hidden"}}>
           <div style={{position:"absolute",top:-20,right:-20,width:80,height:80,background:`radial-gradient(circle,${primary}22 0%,transparent 70%)`,borderRadius:"50%"}}/>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div>
@@ -1250,77 +1251,196 @@ function CustomerWallet({ data, customerEmail, onLogout }) {
 // ═══════════════════════════════════════════════════════════════════════════
 // ROOT APP
 // ═══════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COACH LOGIN GATE (footer link)
+// ═══════════════════════════════════════════════════════════════════════════
+function CoachLoginGate({ data, onLogin, onBack }) {
+  const [username,setUsername]=useState(""); const [pin,setPin]=useState("");
+  const [err,setErr]=useState(""); const [shake,setShake]=useState(false);
+
+  function attempt(currentPin){
+    const p=currentPin!==undefined?currentPin:pin; const u=username.trim().toLowerCase();
+    const team=Object.values(data.teams||{}).find(t=>t.adminUser&&t.adminUser.toLowerCase()===u&&t.adminPin===p);
+    if(team){onLogin({role:"team",teamId:team.id});return;}
+    setErr("Invalid username or PIN"); setShake(true); setPin(""); setTimeout(()=>setShake(false),600);
+  }
+
+  return (<div style={{textAlign:"center",padding:"30px 0 20px"}}>
+    <button onClick={onBack} style={{background:"transparent",border:"none",color:"#475569",fontSize:12,cursor:"pointer",marginBottom:20,padding:0,display:"block",margin:"0 auto 20px"}}>← Back</button>
+    <div style={{fontSize:36,marginBottom:10}}>🏆</div>
+    <div style={{fontSize:22,fontWeight:800,color:"white",marginBottom:4}}>Coach Login</div>
+    <div style={{fontSize:12,color:"#475569",marginBottom:24}}>Enter your team credentials</div>
+    <input value={username} onChange={e=>{setUsername(e.target.value);setErr("");}} placeholder="Username"
+      style={{width:"100%",background:"#1e293b",border:"1px solid #334155",borderRadius:10,padding:"12px 16px",color:"white",fontSize:15,outline:"none",marginBottom:20,textAlign:"center"}}/>
+    <div style={{fontSize:11,color:"#64748b",marginBottom:8}}>PIN</div>
+    <CustomerPinPad value={pin} onChange={v=>{setPin(v);setErr("");}} onComplete={next=>username.trim()&&attempt(next)} shake={shake}/>
+    <div style={{marginTop:4}}><Btn onClick={()=>attempt()} color="#3b82f6" textColor="white">Sign In →</Btn></div>
+    {err&&<div style={{color:"#ef4444",fontSize:12,marginTop:14}}>{err}</div>}
+  </div>);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUPER ADMIN LOGIN GATE (secret URL only)
+// ═══════════════════════════════════════════════════════════════════════════
+function SuperAdminLoginGate({ data, onLogin }) {
+  const [pin,setPin]=useState(""); const [err,setErr]=useState(""); const [shake,setShake]=useState(false);
+
+  function attempt(currentPin){
+    const p=currentPin!==undefined?currentPin:pin;
+    if(p===(data.superAdminPin||"1234")){onLogin({role:"super"});return;}
+    setErr("Incorrect PIN"); setShake(true); setPin(""); setTimeout(()=>setShake(false),600);
+  }
+
+  return (<div style={{textAlign:"center",padding:"40px 0 20px"}}>
+    <div style={{fontSize:40,marginBottom:10}}>🔐</div>
+    <div style={{fontSize:22,fontWeight:800,color:"white",marginBottom:4}}>Super Admin</div>
+    <div style={{fontSize:12,color:"#475569",marginBottom:32}}>L1quid Studios platform access</div>
+    <div style={{fontSize:11,color:"#64748b",marginBottom:8}}>PIN</div>
+    <CustomerPinPad value={pin} onChange={v=>{setPin(v);setErr("");}} onComplete={attempt} shake={shake}/>
+    <div style={{marginTop:4}}><Btn onClick={()=>attempt()} color="#f59e0b">Sign In →</Btn></div>
+    {err&&<div style={{color:"#ef4444",fontSize:12,marginTop:14}}>{err}</div>}
+    <div style={{marginTop:18,fontSize:11,color:"#1e3a5f"}}>Default PIN: 1234</div>
+  </div>);
+}
+
 export default function App() {
-  const [data,setData]=useState(null); // null = loading
+  const [data,setData]=useState(null);
   const [loadErr,setLoadErr]=useState(null);
-  const [screen,setScreen]=useState("wallet");
+  const [screen,setScreen]=useState("wallet"); // "wallet" | "coach" | "superadmin"
   const [adminSession,setAdminSession]=useState(null);
   const [customerSession,setCustomerSession]=useState(null);
   const [urlCardId,setUrlCardId]=useState(null);
+  const [activeTeamColor,setActiveTeamColor]=useState(null);
+  const [activeTeamName,setActiveTeamName]=useState(null);
+  const [activeTeamLogo,setActiveTeamLogo]=useState(null);
+  const [showCoachLogin,setShowCoachLogin]=useState(false);
 
   useEffect(()=>{
-    const p=new URLSearchParams(window.location.search); const c=p.get("card"); if(c)setUrlCardId(c.toUpperCase());
+    const p=new URLSearchParams(window.location.search);
+    const c=p.get("card"); if(c) setUrlCardId(c.toUpperCase());
+    // Secret super admin URL: ?admin=true
+    if(p.get("admin")==="true") setScreen("superadmin");
     loadAppData().then(setData).catch(e=>{console.error(e);setLoadErr("Could not connect to database. Check your Supabase URL and key.");});
   },[]);
+
+  // Update top bar when customer opens a team card
+  function handleTeamActive(team) {
+    if(team) {
+      setActiveTeamColor(team.branding?.primaryColor||"#f59e0b");
+      setActiveTeamName(team.name||null);
+      setActiveTeamLogo(team.branding?.logo||null);
+    } else {
+      setActiveTeamColor(null);
+      setActiveTeamName(null);
+      setActiveTeamLogo(null);
+    }
+  }
 
   if(loadErr) return (<div style={{minHeight:"100vh",background:"#0a1628",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
     <div style={{background:"#1e293b",borderRadius:14,padding:"24px",maxWidth:400,textAlign:"center"}}>
       <div style={{fontSize:32,marginBottom:12}}>⚠️</div>
       <div style={{fontSize:16,color:"white",fontWeight:700,marginBottom:8}}>Connection Error</div>
       <div style={{fontSize:13,color:"#64748b",marginBottom:16}}>{loadErr}</div>
-      <div style={{fontSize:11,color:"#475569"}}>Open this file and replace SUPABASE_URL and SUPABASE_ANON_KEY at the top with your values from supabase.com</div>
+      <div style={{fontSize:11,color:"#475569"}}>Check your Supabase URL and key at the top of App.jsx</div>
     </div>
   </div>);
 
   if(!data) return (<div style={{minHeight:"100vh",background:"#0a1628",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
-    <Spinner/><div style={{fontSize:14,color:"#475569"}}>Loading FundCard...</div>
+    <Spinner/><div style={{fontSize:14,color:"#475569"}}>Loading L1quid Deals...</div>
   </div>);
 
-  const primary=(adminSession?.role==="team"?data.teams[adminSession.teamId]?.branding?.primaryColor:null)||"#f59e0b";
   const teamAdminTeam=adminSession?.role==="team"?data.teams[adminSession.teamId]:null;
+
+  // Dynamic top bar values
+  const barColor   = activeTeamColor || "#0a1628";
+  const barBorder  = activeTeamColor ? activeTeamColor+"44" : "#1e293b";
+  const barName    = activeTeamName  || "L1quid Deals";
+  const barLogo    = activeTeamLogo  || null;
+  const barTextColor = activeTeamColor ? "white" : "white";
+  const isCustomColor = !!activeTeamColor;
 
   return (<div style={{minHeight:"100vh",background:"#0a1628",color:"white",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
     <style>{`*{box-sizing:border-box}::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#0a1628}::-webkit-scrollbar-thumb{background:#334155;border-radius:4px}input::placeholder,textarea::placeholder{color:#334155}select option{background:#1e293b}`}</style>
 
-    {/* Top bar */}
-    <div style={{background:"#0a1628",borderBottom:"1px solid #1e293b",padding:"13px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:10}}>
+    {/* Top bar — dynamic based on active team */}
+    <div style={{
+      background: isCustomColor ? `linear-gradient(135deg,${barColor}dd 0%,${barColor}99 100%)` : "#0a1628",
+      borderBottom:`1px solid ${barBorder}`,
+      padding:"13px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",
+      position:"sticky",top:0,zIndex:10,
+      transition:"background 0.4s, border-color 0.4s"
+    }}>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
-        {data.teams&&Object.values(data.teams)[0]?.branding?.logo
-          ?<img src={Object.values(data.teams)[0].branding.logo} style={{width:28,height:28,borderRadius:6,objectFit:"cover"}}/>
-          :<span style={{fontSize:18,color:primary}}>★</span>}
-        <span style={{fontSize:15,fontWeight:800,color:"white"}}>FundCard</span>
+        {barLogo
+          ?<img src={barLogo} style={{width:28,height:28,borderRadius:6,objectFit:"cover"}}/>
+          :<span style={{fontSize:18,color:activeTeamColor||"#f59e0b"}}>★</span>}
+        <span style={{fontSize:15,fontWeight:800,color:"white",transition:"all 0.3s"}}>{barName}</span>
       </div>
-      <div style={{display:"flex",gap:6}}>
-        <button onClick={()=>setScreen("wallet")} style={{padding:"6px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:screen==="wallet"?primary:"#1e293b",color:screen==="wallet"?"#0f172a":"#64748b"}}>🎟 My Cards</button>
-        <button onClick={()=>setScreen("admin")} style={{padding:"6px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:screen==="admin"?"#3b82f6":"#1e293b",color:screen==="admin"?"white":"#64748b"}}>⚙ Admin</button>
-      </div>
+      {/* Only show My Cards button on wallet screen — no admin button visible to customers */}
+      {screen==="wallet"&&customerSession&&(
+        <button onClick={()=>{setCustomerSession(null);handleTeamActive(null);}} style={{padding:"6px 14px",borderRadius:20,border:`1px solid ${activeTeamColor||"#334155"}44`,cursor:"pointer",fontSize:12,fontWeight:600,background:"transparent",color:"white"}}>
+          Log Out
+        </button>
+      )}
+      {/* Coach admin gets a lock button */}
+      {screen==="coach"&&adminSession&&(
+        <button onClick={()=>setAdminSession(null)} style={{padding:"6px 12px",borderRadius:8,border:"1px solid #334155",background:"transparent",color:"#475569",fontSize:11,cursor:"pointer"}}>🔒 Lock</button>
+      )}
+      {/* Super admin gets lock + label */}
+      {screen==="superadmin"&&adminSession&&(
+        <button onClick={()=>setAdminSession(null)} style={{padding:"6px 12px",borderRadius:8,border:"1px solid #334155",background:"transparent",color:"#475569",fontSize:11,cursor:"pointer"}}>🔒 Lock</button>
+      )}
     </div>
 
     <div style={{maxWidth:560,margin:"0 auto",padding:"20px 16px 60px"}}>
+
+      {/* ── Wallet (customer) ── */}
       {screen==="wallet"&&(
         customerSession
-          ?<CustomerWallet data={data} customerEmail={customerSession.email} onLogout={()=>setCustomerSession(null)}/>
-          :<CustomerAuth data={data} setData={setData} prefillCardId={urlCardId||""} onLogin={s=>{setCustomerSession(s);setUrlCardId(null);}}/>
+          ?<CustomerWallet data={data} customerEmail={customerSession.email}
+              onTeamActive={handleTeamActive}
+              onLogout={()=>{setCustomerSession(null);handleTeamActive(null);}}/>
+          :<CustomerAuth data={data} setData={setData} prefillCardId={urlCardId||""}
+              onLogin={s=>{setCustomerSession(s);setUrlCardId(null);}}/>
       )}
-      {screen==="admin"&&(
+
+      {/* ── Coach login / panel ── */}
+      {screen==="coach"&&(
         !adminSession
-          ?<AdminLoginGate data={data} onLogin={s=>setAdminSession(s)}/>
+          ?<CoachLoginGate data={data} onLogin={s=>setAdminSession(s)} onBack={()=>setScreen("wallet")}/>
+          :teamAdminTeam
+            ?<div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+                <div>
+                  <div style={{fontSize:16,fontWeight:800,color:"white"}}>{teamAdminTeam.name}</div>
+                  <div style={{fontSize:11,color:"#475569"}}>Coach Admin</div>
+                </div>
+              </div>
+              <TeamPanel team={teamAdminTeam} isSuperAdmin={false} onTeamUpdate={updated=>setData({...data,teams:{...data.teams,[updated.id]:updated}})}/>
+            </div>
+            :<div style={{color:"#ef4444",padding:40,textAlign:"center"}}>Team not found.</div>
+      )}
+
+      {/* ── Super Admin (secret URL only) ── */}
+      {screen==="superadmin"&&(
+        !adminSession
+          ?<SuperAdminLoginGate data={data} onLogin={s=>setAdminSession(s)}/>
           :adminSession.role==="super"
             ?<SuperAdminView data={data} onDataChange={setData} onLock={()=>setAdminSession(null)}/>
-            :teamAdminTeam
-              ?<div>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                  <div><div style={{fontSize:16,fontWeight:800,color:"white"}}>{teamAdminTeam.name}</div><div style={{fontSize:11,color:"#475569"}}>Coach admin</div></div>
-                  <button onClick={()=>setAdminSession(null)} style={{padding:"6px 12px",borderRadius:8,border:"1px solid #334155",background:"transparent",color:"#475569",fontSize:11,cursor:"pointer"}}>🔒 Lock</button>
-                </div>
-                <TeamPanel team={teamAdminTeam} isSuperAdmin={false} onTeamUpdate={updated=>setData({...data,teams:{...data.teams,[updated.id]:updated}})}/>
-              </div>
-              :<div style={{color:"#ef4444",padding:40,textAlign:"center"}}>Team not found.</div>
+            :<div style={{color:"#ef4444",padding:40,textAlign:"center"}}>Not authorized.</div>
       )}
+
     </div>
 
     {/* Footer */}
     <div style={{textAlign:"center",padding:"12px 20px 24px",borderTop:"1px solid #1e293b"}}>
+      {/* Coach login link — subtle, customers ignore it */}
+      {screen==="wallet"&&!customerSession&&(
+        <button onClick={()=>setScreen("coach")} style={{background:"transparent",border:"none",color:"#1e293b",fontSize:11,cursor:"pointer",marginBottom:8,display:"block",margin:"0 auto 8px"}}>
+          Team Login
+        </button>
+      )}
       <div style={{fontSize:11,color:"#334155",letterSpacing:1}}>Powered by <span style={{color:"#475569",fontWeight:700}}>L1quid Studios</span></div>
     </div>
   </div>);
