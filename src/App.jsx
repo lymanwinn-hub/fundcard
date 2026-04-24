@@ -1377,12 +1377,24 @@ export default function App() {
           :<span style={{fontSize:18,color:activeTeamColor||"#f59e0b"}}>★</span>}
         <span style={{fontSize:15,fontWeight:800,color:"white",transition:"all 0.3s"}}>{barName}</span>
       </div>
-      {/* Only show My Cards button on wallet screen — no admin button visible to customers */}
-      {screen==="wallet"&&customerSession&&(
-        <button onClick={()=>{setCustomerSession(null);handleTeamActive(null);}} style={{padding:"6px 14px",borderRadius:20,border:`1px solid ${activeTeamColor||"#334155"}44`,cursor:"pointer",fontSize:12,fontWeight:600,background:"transparent",color:"white"}}>
-          Log Out
-        </button>
-      )}
+      {/* Right side of top bar */}
+      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+        {screen==="wallet"&&!customerSession&&(
+          <button onClick={()=>setScreen("coach")} style={{
+            padding:"6px 12px",borderRadius:8,border:"1px solid #334155",
+            background:"#1e293b",color:"#94a3b8",fontSize:11,fontWeight:600,
+            cursor:"pointer",whiteSpace:"nowrap"
+          }}>Team Admin</button>
+        )}
+        {screen==="wallet"&&customerSession&&(
+          <button onClick={()=>{setCustomerSession(null);handleTeamActive(null);}} style={{
+            padding:"6px 14px",borderRadius:20,
+            border:`1px solid ${activeTeamColor||"#334155"}44`,
+            cursor:"pointer",fontSize:12,fontWeight:600,
+            background:"transparent",color:"white"
+          }}>Log Out</button>
+        )}
+      </div>
       {/* Coach admin gets a lock button */}
       {screen==="coach"&&adminSession&&(
         <button onClick={()=>setAdminSession(null)} style={{padding:"6px 12px",borderRadius:8,border:"1px solid #334155",background:"transparent",color:"#475569",fontSize:11,cursor:"pointer"}}>🔒 Lock</button>
@@ -1435,12 +1447,7 @@ export default function App() {
 
     {/* Footer */}
     <div style={{textAlign:"center",padding:"12px 20px 24px",borderTop:"1px solid #1e293b"}}>
-      {/* Coach login link — subtle, customers ignore it */}
-      {screen==="wallet"&&!customerSession&&(
-        <button onClick={()=>setScreen("coach")} style={{background:"transparent",border:"none",color:"#1e293b",fontSize:11,cursor:"pointer",marginBottom:8,display:"block",margin:"0 auto 8px"}}>
-          Team Login
-        </button>
-      )}
+
       <div style={{fontSize:11,color:"#334155",letterSpacing:1}}>Powered by <span style={{color:"#475569",fontWeight:700}}>L1quid Studios</span></div>
     </div>
   </div>);
