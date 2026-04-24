@@ -1319,10 +1319,34 @@ export default function App() {
   useEffect(()=>{
     const p=new URLSearchParams(window.location.search);
     const c=p.get("card"); if(c) setUrlCardId(c.toUpperCase());
-    // Secret super admin URL: ?admin=true
     if(p.get("admin")==="true") setScreen("superadmin");
+
+    // Restore persisted sessions from localStorage
+    try {
+      const savedCustomer = localStorage.getItem("lqdCustomer");
+      if(savedCustomer) setCustomerSession(JSON.parse(savedCustomer));
+      const savedCoach = localStorage.getItem("lqdCoach");
+      if(savedCoach) { setAdminSession(JSON.parse(savedCoach)); setScreen("coach"); }
+    } catch(e) {}
+
     loadAppData().then(setData).catch(e=>{console.error(e);setLoadErr("Could not connect to database. Check your Supabase URL and key.");});
   },[]);
+
+  // Persist customer session whenever it changes
+  useEffect(()=>{
+    try {
+      if(customerSession) localStorage.setItem("lqdCustomer", JSON.stringify(customerSession));
+      else localStorage.removeItem("lqdCustomer");
+    } catch(e) {}
+  },[customerSession]);
+
+  // Persist coach session whenever it changes
+  useEffect(()=>{
+    try {
+      if(adminSession?.role==="team") localStorage.setItem("lqdCoach", JSON.stringify(adminSession));
+      else localStorage.removeItem("lqdCoach");
+    } catch(e) {}
+  },[adminSession]);
 
   // Update top bar when customer opens a team card
   function handleTeamActive(team) {
@@ -1387,7 +1411,7 @@ export default function App() {
           }}>Team Admin</button>
         )}
         {screen==="wallet"&&customerSession&&(
-          <button onClick={()=>{setCustomerSession(null);handleTeamActive(null);}} style={{
+          <button onClick={()=>{setCustomerSession(null);handleTeamActive(null);try{localStorage.removeItem('lqdCustomer');}catch(e){}}} style={{
             padding:"6px 14px",borderRadius:20,
             border:`1px solid ${activeTeamColor||"#334155"}44`,
             cursor:"pointer",fontSize:12,fontWeight:600,
@@ -1397,11 +1421,11 @@ export default function App() {
       </div>
       {/* Coach admin gets a lock button */}
       {screen==="coach"&&adminSession&&(
-        <button onClick={()=>setAdminSession(null)} style={{padding:"6px 12px",borderRadius:8,border:"1px solid #334155",background:"transparent",color:"#475569",fontSize:11,cursor:"pointer"}}>🔒 Lock</button>
+        <button onClick={()=>{setAdminSession(null);try{localStorage.removeItem('lqdCoach');}catch(e){}}} style={{padding:"6px 12px",borderRadius:8,border:"1px solid #334155",background:"transparent",color:"#475569",fontSize:11,cursor:"pointer"}}>🔒 Lock</button>
       )}
       {/* Super admin gets lock + label */}
       {screen==="superadmin"&&adminSession&&(
-        <button onClick={()=>setAdminSession(null)} style={{padding:"6px 12px",borderRadius:8,border:"1px solid #334155",background:"transparent",color:"#475569",fontSize:11,cursor:"pointer"}}>🔒 Lock</button>
+        <button onClick={()=>{setAdminSession(null);try{localStorage.removeItem('lqdCoach');}catch(e){}}} style={{padding:"6px 12px",borderRadius:8,border:"1px solid #334155",background:"transparent",color:"#475569",fontSize:11,cursor:"pointer"}}>🔒 Lock</button>
       )}
     </div>
 
@@ -1412,7 +1436,7 @@ export default function App() {
         customerSession
           ?<CustomerWallet data={data} customerEmail={customerSession.email}
               onTeamActive={handleTeamActive}
-              onLogout={()=>{setCustomerSession(null);handleTeamActive(null);}}/>
+              onLogout={()=>{setCustomerSession(null);handleTeamActive(null);try{localStorage.removeItem('lqdCustomer');}catch(e){}}}/>
           :<CustomerAuth data={data} setData={setData} prefillCardId={urlCardId||""}
               onLogin={s=>{setCustomerSession(s);setUrlCardId(null);}}/>
       )}
