@@ -551,9 +551,11 @@ function TeamPanel({ team, onTeamUpdate, isSuperAdmin }) {
 
   async function generateCards() {
     const newCards={};
-    const rows=[];
-    for(let i=0;i<count;i++){const id=randId(8);newCards[id]={id,teamId:team.id,createdAt:Date.now(),redemptions:{}};rows.push({id,team_id:team.id});}
-    await DB.insertMany("cards",rows);
+    for(let i=0;i<count;i++){
+      const id=randId(8);
+      await DB.insert("cards",{id,team_id:team.id});
+      newCards[id]={id,teamId:team.id,createdAt:Date.now(),redemptions:{}};
+    }
     onTeamUpdate({...team,cards:{...team.cards,...newCards}});
     setTab("issued");
   }
