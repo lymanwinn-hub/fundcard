@@ -28,11 +28,12 @@ async function sb(path, opts = {}) {
 }
 
 const DB = {
-  get:    (t, q="")    => sb(`${t}?${q}`),
-  insert: (t, row)     => sb(t, { method:"POST", body: row }),
-  update: (t, q, row)  => sb(`${t}?${q}`, { method:"PATCH", body: row, prefer:"return=minimal" }),
-  upsert: (t, row)     => sb(t, { method:"POST", body: row, prefer:"resolution=merge-duplicates,return=representation" }),
-  del:    (t, q)       => sb(`${t}?${q}`, { method:"DELETE", prefer:"return=minimal" }),
+  get:        (t, q="")    => sb(`${t}?${q}`),
+  insert:     (t, row)     => sb(t, { method:"POST", body: row }),
+  insertMany: (t, rows)    => sb(t, { method:"POST", body: rows }),
+  update:     (t, q, row)  => sb(`${t}?${q}`, { method:"PATCH", body: row, prefer:"return=minimal" }),
+  upsert:     (t, row)     => sb(t, { method:"POST", body: row, prefer:"resolution=merge-duplicates,return=representation" }),
+  del:        (t, q)       => sb(`${t}?${q}`, { method:"DELETE", prefer:"return=minimal" }),
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
