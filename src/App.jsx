@@ -1245,6 +1245,17 @@ function CustomerWallet({ data, customerEmail, onLogout, onTeamActive=()=>{} }) 
       <strong style={{color:"#94a3b8"}}>💡 Save to your phone</strong><br/>
       Tap <strong style={{color:"white"}}>Share → Add to Home Screen</strong> in Safari or Chrome. Your wallet lives on your home screen.
     </div>
+
+    {/* Start a Fundraiser CTA */}
+    <div style={{marginTop:16,background:"linear-gradient(135deg,#1a2744 0%,#162035 100%)",borderRadius:12,padding:"16px",border:"1px solid #f59e0b33",textAlign:"center"}}>
+      <div style={{fontSize:20,marginBottom:6}}>🏆</div>
+      <div style={{fontSize:14,fontWeight:700,color:"white",marginBottom:4}}>Want to run a fundraiser?</div>
+      <div style={{fontSize:12,color:"#64748b",marginBottom:12}}>L1quid Fundraising makes it easy for your team, school, or organization.</div>
+      <a href="mailto:lyman@l1quidstudios.com?subject=Fundraiser Inquiry&body=Hi Lyman, I'm interested in running a fundraiser with L1quid Fundraising. Here's a bit about our organization:%0D%0A%0D%0AOrganization name:%0D%0AType of group:%0D%0AEstimated number of supporters:%0D%0A%0D%0ALooking forward to hearing from you!"
+        style={{display:"inline-block",padding:"10px 20px",background:"#f59e0b",borderRadius:9,color:"#0f172a",fontSize:13,fontWeight:800,textDecoration:"none"}}>
+        Start a Fundraiser →
+      </a>
+    </div>
   </div>);
 }
 
@@ -1371,7 +1382,7 @@ export default function App() {
   </div>);
 
   if(!data) return (<div style={{minHeight:"100vh",background:"#0a1628",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
-    <Spinner/><div style={{fontSize:14,color:"#475569"}}>Loading L1quid Deals...</div>
+    <Spinner/><div style={{fontSize:14,color:"#475569"}}>Loading L1quid Fundraising...</div>
   </div>);
 
   const teamAdminTeam=adminSession?.role==="team"?data.teams[adminSession.teamId]:null;
@@ -1379,7 +1390,7 @@ export default function App() {
   // Dynamic top bar values
   const barColor   = activeTeamColor || "#0a1628";
   const barBorder  = activeTeamColor ? activeTeamColor+"44" : "#1e293b";
-  const barName    = activeTeamName  || "L1quid Deals";
+  const barName    = activeTeamName  || "L1quid Fundraising";
   const barLogo    = activeTeamLogo  || null;
   const barTextColor = activeTeamColor ? "white" : "white";
   const isCustomColor = !!activeTeamColor;
@@ -1396,10 +1407,17 @@ export default function App() {
       transition:"background 0.4s, border-color 0.4s"
     }}>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
-        {barLogo
-          ?<img src={barLogo} style={{width:28,height:28,borderRadius:6,objectFit:"cover"}}/>
-          :<span style={{fontSize:18,color:activeTeamColor||"#f59e0b"}}>★</span>}
-        <span style={{fontSize:15,fontWeight:800,color:"white",transition:"all 0.3s"}}>{barName}</span>
+        {/* Always show L1quid logo, swap team logo alongside when active */}
+        <img src="/L1QUID_LogoB.png" style={{height:28,width:"auto",objectFit:"contain"}}/>
+        {activeTeamLogo&&(
+          <>
+            <span style={{color:"#334155",fontSize:14,margin:"0 2px"}}>×</span>
+            <img src={activeTeamLogo} style={{width:28,height:28,borderRadius:6,objectFit:"cover"}}/>
+          </>
+        )}
+        {!activeTeamLogo&&(
+          <span style={{fontSize:14,fontWeight:800,color:"white",transition:"all 0.3s",marginLeft:4}}>{barName}</span>
+        )}
       </div>
       {/* Right side of top bar */}
       <div style={{display:"flex",gap:6,alignItems:"center"}}>
@@ -1472,6 +1490,10 @@ export default function App() {
     {/* Footer */}
     <div style={{textAlign:"center",padding:"12px 20px 24px",borderTop:"1px solid #1e293b"}}>
 
+      <a href="mailto:lyman@l1quidstudios.com?subject=Fundraiser Inquiry&body=Hi Lyman, I'm interested in running a fundraiser with L1quid Fundraising. Here's a bit about our organization:%0D%0A%0D%0AOrganization name:%0D%0AType of group:%0D%0AEstimated number of supporters:%0D%0A%0D%0ALooking forward to hearing from you!"
+        style={{display:"block",fontSize:12,color:"#f59e0b",textDecoration:"none",marginBottom:6,fontWeight:600}}>
+        🏆 Start a Fundraiser
+      </a>
       <div style={{fontSize:11,color:"#334155",letterSpacing:1}}>Powered by <span style={{color:"#475569",fontWeight:700}}>L1quid Studios</span></div>
     </div>
   </div>);
