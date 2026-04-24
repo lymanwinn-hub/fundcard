@@ -1121,6 +1121,15 @@ function CustomerWallet({ data, customerEmail, onLogout }) {
     if(myCardIds.includes(result.cardId)){setAddCardErr("Card already in your wallet");return;}
     try{
       await DB.insert("customer_cards",{email:customerEmail,card_id:result.cardId});
+      // Also fetch existing redemptions for this card so counts are accurate immediately
+      try {
+        const redRows = await DB.get("redemptions",`card_id=eq.${result.cardId}&select=card_id,deal_id`);
+        const counts = {};
+        for(const r of (redRows||[])) {
+          counts[r.deal_id]=(counts[r.deal_id]||0)+1;
+        }
+        setRedemptions(r=>({...r,[result.cardId]:counts}));
+      } catch(e) {}
       setMyCardIds([...myCardIds,result.cardId]); setAddCardInput("");
       setActiveCardId(result.cardId);
     }catch(e){setAddCardErr("Could not add card — try again");}
