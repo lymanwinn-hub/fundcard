@@ -6,7 +6,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // ═══════════════════════════════════════════════════════════════════════════
 const SUPABASE_URL     = "https://qkjhuisquibnejprloip.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFramh1aXNxdWlibmVqcHJsb2lwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMjI4MzEsImV4cCI6MjA5MjU5ODgzMX0.ppHab7C5YDhS1ZjM6n2nnuX81KYMqoefoaTCoIWK7ew";
-
 // ── Supabase REST client ──────────────────────────────────────────────────────
 async function sb(path, opts = {}) {
   const url = `${SUPABASE_URL}/rest/v1/${path}`;
@@ -1075,12 +1074,30 @@ function CustomerWallet({ data, customerEmail, onLogout }) {
   const [addCardInput,setAddCardInput]=useState(""); const [addCardErr,setAddCardErr]=useState("");
   const [filter,setFilter]=useState("All"); const [confirmMode,setConfirmMode]=useState(null);
   const [confetti,setConfetti]=useState(false); const [lastRedeemed,setLastRedeemed]=useState(null);
-  const [redemptions,setRedemptions]=useState({}); // live redemption state
+  const [redemptions,setRedemptions]=useState({}); // live redemption state — always from Supabase
 
+  // Load cards AND fresh redemption counts from Supabase on every login
   useEffect(()=>{
-    DB.get("customer_cards",`email=eq.${encodeURIComponent(customerEmail)}&select=card_id`)
-      .then(rows=>setMyCardIds((rows||[]).map(r=>r.card_id)))
-      .catch(()=>setMyCardIds([]));
+    async function loadWallet() {
+      try {
+        const cardRows = await DB.get("customer_cards",`email=eq.${encodeURIComponent(customerEmail)}&select=card_id`);
+        const cardIds = (cardRows||[]).map(r=>r.card_id);
+        setMyCardIds(cardIds);
+        if(cardIds.length===0) return;
+        // Fetch all redemptions for these cards fresh from DB
+        const filter = cardIds.map(id=>`card_id=eq.${id}`).join(",");
+        const redRows = await DB.get("redemptions",`or=(${filter})&select=card_id,deal_id`);
+        const counts = {};
+        for(const r of (redRows||[])) {
+          if(!counts[r.card_id]) counts[r.card_id]={};
+          counts[r.card_id][r.deal_id]=(counts[r.card_id][r.deal_id]||0)+1;
+        }
+        setRedemptions(counts);
+      } catch(e) {
+        setMyCardIds([]);
+      }
+    }
+    loadWallet();
   },[customerEmail]);
 
   function findCard(id){
@@ -1111,9 +1128,8 @@ function CustomerWallet({ data, customerEmail, onLogout }) {
   }
 
   function getUsed(cardId,dealId,team){
-    const live=(redemptions[cardId]||{})[dealId];
-    if(live!=null)return live;
-    return team.cards[cardId]?.redemptions?.[dealId]||0;
+    // Always use fresh redemptions loaded from Supabase — never stale team.cards data
+    return (redemptions[cardId]||{})[dealId]||0;
   }
 
   if(myCardIds===null)return <Spinner/>;
