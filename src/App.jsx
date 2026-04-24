@@ -1128,7 +1128,7 @@ function CustomerWallet({ data, customerEmail, onLogout }) {
 
   async function redeem(dealId,cardId,team){
     const deal=team.deals.find(d=>d.id===dealId);
-    const used=(redemptions[cardId]||{})[dealId]||team.cards[cardId]?.redemptions?.[dealId]||0;
+    const used=(redemptions[cardId]||{})[dealId]||0;
     if(deal.limit!=null&&used>=deal.limit)return;
     await DB.insert("redemptions",{card_id:cardId,deal_id:dealId});
     setRedemptions(r=>({...r,[cardId]:{...(r[cardId]||{}),[dealId]:(r[cardId]?.[dealId]||used)+1}}));
