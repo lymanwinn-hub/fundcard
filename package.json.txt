@@ -1,5 +1,3 @@
-package.json:
-```json
 {
   "name": "fundcard",
   "version": "1.0.0",
